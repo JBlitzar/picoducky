@@ -125,23 +125,34 @@ def on_mouse_move(x, y):
     last_mouse_sent_timestamp = current_time
 
 
+pressed_keys = []
+
+
 def on_key_press(key):
-    key_str = pygame.key.name(key)
-    if "meta" in key_str:
-        key_str = "⌘"
-    elif "alt" in key_str:
-        key_str = "⌥"
-    elif "shift" in key_str:
-        key_str = "⇧"
-    elif "ctrl" in key_str:
-        key_str = "⌃"
-    elif "return" in key_str:
-        key_str = "↩︎"
-    else:
-        pass
+    pressed_keys.append(key)
 
 
-    send_command_to_client(f"type;{key_str}\n")
+def on_key_release(key):
+    global pressed_keys
+
+    combo = []
+    for k in list(pressed_keys):
+        key_str = pygame.key.name(k)
+        if "meta" in key_str:
+            key_str = "⌘"
+        elif "alt" in key_str:
+            key_str = "⌥"
+        elif "shift" in key_str:
+            key_str = "⇧"
+        elif "ctrl" in key_str:
+            key_str = "⌃"
+        elif "return" in key_str:
+            key_str = "↩︎"
+        combo.append(key_str)
+    if combo:
+        send_command_to_client(f"type;{''.join(combo)}\n")
+    pressed_keys = []
+
 
 
 def main():
@@ -169,6 +180,8 @@ def main():
                 on_mouse_move(event.pos[0], event.pos[1])
             elif event.type == pygame.KEYDOWN:
                 on_key_press(event.key)
+            elif event.type == pygame.KEYUP:
+                on_key_release(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 send_command_to_client(f"mouseclick;{event.button},1\n")
             elif event.type == pygame.MOUSEBUTTONUP:
