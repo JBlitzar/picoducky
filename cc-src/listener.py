@@ -15,7 +15,6 @@ def send_command_to_usb_device(command: str):
     MAGIC_SEQUENCE = b"\x42\x67\x4a\x79"
     data = MAGIC_SEQUENCE + command.encode("utf-8")
     # lol
-    time.sleep(0.1)
 
 
 def monitor_and_send_screenshots(sock):
@@ -64,7 +63,9 @@ def handle_server_connection():
                 break
 
             command = data.decode("utf-8").strip()
-            send_command_to_usb_device(command)
+            for thing in command.split("\n"):
+                if thing:
+                    send_command_to_usb_device(thing)
 
     except Exception as e:
         print(f"Connection error: {e}")

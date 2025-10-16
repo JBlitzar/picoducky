@@ -4,6 +4,7 @@ import threading
 import base64
 import io
 from PIL import Image
+import time
 
 PORT = 9337
 
@@ -22,7 +23,7 @@ def screenshot_callback(img_data: bytes):
         new_size = (original_size[0] // 4, original_size[1] // 4)
         new_image = image.resize(new_size, Image.Resampling.LANCZOS)
 
-        image.save("latest_screenshot.png")
+        # image.save("latest_screenshot.png")
 
         mode = new_image.mode
         size = new_image.size
@@ -111,13 +112,22 @@ def start_server():
         server_socket.close()
 
 
+last_mouse_sent_timestamp = 0
+
+
 def on_mouse_move(x, y):
-    send_command_to_client(f"mouse;{x},{y}")
+    global last_mouse_sent_timestamp
+    current_time = time.time()
+    if current_time - last_mouse_sent_timestamp < 0.05:
+        return
+
+    send_command_to_client(f"mouse;{x},{y}\n")
+    last_mouse_sent_timestamp = current_time
 
 
 def on_key_press(key):
     key_str = pygame.key.name(key)
-    send_command_to_client(f"type;{key_str}")
+    send_command_to_client(f"type;{key_str}\n")
 
 
 def main():
