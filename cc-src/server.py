@@ -155,6 +155,10 @@ def main():
                 on_mouse_move(event.pos[0], event.pos[1])
             elif event.type == pygame.KEYDOWN:
                 on_key_press(event.key)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                send_command_to_client(f"mouseclick;{event.button},1\n")
+            elif event.type == pygame.MOUSEBUTTONUP:
+                send_command_to_client(f"mouseclick;{event.button},0\n")
 
         pygame.display.flip()
         clock.tick(60)

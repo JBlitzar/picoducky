@@ -42,7 +42,7 @@ def on_recieve_usb_data(data: bytes):
     MAGIC_SEQUENCE = b"\x42\x67\x4a\x79"
     if not data.startswith(MAGIC_SEQUENCE):
         return
-    data = data[len(MAGIC_SEQUENCE) :].decode("utf-8")
+    data = data[len(MAGIC_SEQUENCE):].decode("utf-8")
     print(f"Decoded data: {data}")
     data = data.split(";")
     command = data[0]
@@ -50,6 +50,9 @@ def on_recieve_usb_data(data: bytes):
         coords = data[1].split(",")
         x, y = int(coords[0]), int(coords[1])
         move_mouse_to(x, y)
+    elif command == "mouseclick":
+        btn, pressed = data[1].split(",")
+        print(f"Would {'press' if pressed == '1' else 'release'} mouse button {btn}")
     elif command == "type":
         sequence = data[
             1:

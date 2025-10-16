@@ -16,3 +16,4 @@ cd cc-src
 uv run server.py
 uv run listener.py # in another terminal window
 ```
+Then press cmd + ctrl + shift + 3 to see the screenshot propogate
