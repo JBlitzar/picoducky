@@ -2,12 +2,31 @@ import time
 import socket
 import threading
 import os
-import tempfile
 import base64
-import io
-import glob
+import subprocess
+import sys
+import binascii
+import shutil
 
 SERVER_IP_PORT = "127.0.0.1:9337"
+
+
+def get_clipboard_content():
+    if sys.platform == "darwin":  # macOS
+        return subprocess.check_output("pbpaste", universal_newlines=True)
+    elif sys.platform == "win32":  # Windows
+        return subprocess.check_output("powershell Get-Clipboard", universal_newlines=True)
+    else:  # Linux
+        return subprocess.check_output("xclip -o", universal_newlines=True)
+
+def write_to_clipboard(content):
+    if sys.platform == "darwin":  # macOS
+        subprocess.run("pbcopy", universal_newlines=True, input=content)
+    elif sys.platform == "win32":  # Windows
+        subprocess.run("powershell Set-Clipboard", universal_newlines=True, input=content)
+    else:  # Linux
+        subprocess.run("xclip -selection clipboard", universal_newlines=True, input=content)
+
 
 
 def send_command_to_usb_device(command: str):
@@ -16,30 +35,36 @@ def send_command_to_usb_device(command: str):
     data = MAGIC_SEQUENCE + command.encode("utf-8")
     # lol
 
+# https://pillow.readthedocs.io/en/stable/_modules/PIL/ImageGrab.html#grabclipboard
+def grabclipboard_img() -> bytes | list[str] | None:
+    if sys.platform == "darwin":
+        p = subprocess.run(
+            ["osascript", "-e", "get the clipboard as «class PNGf»"],
+            capture_output=True,
+        )
+        if p.returncode != 0:
+            return None
+
+        return binascii.unhexlify(p.stdout[11:-3])
+    else:
+        return NotImplementedError("haha lol macos only")
+
 
 def monitor_and_send_screenshots(sock):
-    desktop_path = os.path.expanduser("~/Desktop")
-
     while True:
         try:
-            for filename in glob.glob(os.path.join(desktop_path, "Screenshot*.png")):
-                file_path = os.path.join(desktop_path, filename)
-                try:
-                    with open(file_path, "rb") as img_file:
-                        img_data = img_file.read()
-                        encoded_img = base64.b64encode(img_data).decode("utf-8")
+            content = grabclipboard_img()
+            if content is not None:
+                # Assuming the content is a base64 encoded image
+                encoded_img = base64.b64encode(content).decode("utf-8")
+                message = f"SCREENSHOT:{encoded_img}\n"
+                sock.sendall(message.encode("utf-8"))
 
-                    message = f"SCREENSHOT:{encoded_img}\n"
-                    sock.sendall(message.encode("utf-8"))
-
-                    os.remove(file_path)
-
-                except Exception as e:
-                    print(f"eek error : {e}")
-
-            time.sleep(1)
+                # Clear the clipboard
+                write_to_clipboard("")
+            time.sleep(0.1)
         except Exception as e:
-            print(f"eek error (outside) : {e}")
+            print(f"eek error : {e}")
             break
 
 

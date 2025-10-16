@@ -32,7 +32,7 @@ def move_mouse_to(x: int, y: int):
 
 def screenshot():
     print("Would take a screenshot")
-    type_sequence(["⌘3⇧"])
+    type_sequence(["⌘⌃⇧3"])
     time.sleep(0.1)
 
 
