@@ -8,6 +8,8 @@ But it requires a bit of gymnastics to get there. The picoducky doesn't have wir
 
 ## To test (for now)
 
+> mac only for now
+
 `git clone`, `cd` in, etc etc
 
 ```bash

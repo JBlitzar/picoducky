@@ -125,6 +125,7 @@ def on_mouse_move(x, y):
     last_mouse_sent_timestamp = current_time
 
 
+# the truly elegant solution would to just have seperate press and release command propogate properly
 pressed_keys = []
 
 
