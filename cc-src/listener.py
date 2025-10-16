@@ -62,7 +62,6 @@ def monitor_and_send_screenshots(sock):
 
                 # Clear the clipboard
                 write_to_clipboard("")
-            time.sleep(0.1)
         except Exception as e:
             print(f"eek error : {e}")
             break
