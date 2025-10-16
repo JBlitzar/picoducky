@@ -127,6 +127,20 @@ def on_mouse_move(x, y):
 
 def on_key_press(key):
     key_str = pygame.key.name(key)
+    if "meta" in key_str:
+        key_str = "⌘"
+    elif "alt" in key_str:
+        key_str = "⌥"
+    elif "shift" in key_str:
+        key_str = "⇧"
+    elif "ctrl" in key_str:
+        key_str = "⌃"
+    elif "return" in key_str:
+        key_str = "↩︎"
+    else:
+        pass
+
+
     send_command_to_client(f"type;{key_str}\n")
 
 
@@ -138,7 +152,7 @@ def main():
             1117 // 2,
         )
     )
-    pygame.display.set_caption("Input Simulator")
+    pygame.display.set_caption("CC server")
     clock = pygame.time.Clock()
     running = True
 
@@ -160,7 +174,6 @@ def main():
             elif event.type == pygame.MOUSEBUTTONUP:
                 send_command_to_client(f"mouseclick;{event.button},0\n")
 
-        pygame.display.flip()
         clock.tick(60)
 
     pygame.quit()
