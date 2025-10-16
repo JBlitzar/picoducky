@@ -7,7 +7,7 @@ if command -v python3 &> /dev/null; then
 elif command -v python &> /dev/null; then
     PYTHON=python
 else
-    echo "Error: Neither python nor python3 found in PATH" >&2
+    echo "bruh no python" >&2
     exit 1
 fi
 
