@@ -1,5 +1,7 @@
 # picoducky
 
+<img src="demo.png" style="border-radius: 10px">
+
 > demo / working code incoming when I actually have hardware to run this on
 
 Remote control server with Picoducky. What this means is you're able to remotely control your computer from somewhere else just by plugging this in, without any external permissions!
