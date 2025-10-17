@@ -34,7 +34,10 @@ mouse = Mouse(usb_hid.devices)
 _hid_mouse = None
 for _d in usb_hid.devices:
     try:
-        if getattr(_d, "usage_page", None) == 0x01 and getattr(_d, "usage", None) == 0x02:
+        if (
+            getattr(_d, "usage_page", None) == 0x01
+            and getattr(_d, "usage", None) == 0x02
+        ):
             _hid_mouse = _d
             break
     except Exception:
@@ -56,14 +59,16 @@ def _send_abs_mouse(x: int, y: int, wheel: int = 0) -> None:
         w = -127
     if w > 127:
         w = 127
-    report = bytes((
-        _buttons & 0xFF,
-        x & 0xFF,
-        (x >> 8) & 0xFF,
-        y & 0xFF,
-        (y >> 8) & 0xFF,
-        w & 0xFF,
-    ))
+    report = bytes(
+        (
+            _buttons & 0xFF,
+            x & 0xFF,
+            (x >> 8) & 0xFF,
+            y & 0xFF,
+            (y >> 8) & 0xFF,
+            w & 0xFF,
+        )
+    )
     try:
         _hid_mouse.send_report(report)
         _abs_x, _abs_y = x, y
