@@ -15,25 +15,32 @@ def get_clipboard_content():
     if sys.platform == "darwin":  # macOS
         return subprocess.check_output("pbpaste", universal_newlines=True)
     elif sys.platform == "win32":  # Windows
-        return subprocess.check_output("powershell Get-Clipboard", universal_newlines=True)
+        return subprocess.check_output(
+            "powershell Get-Clipboard", universal_newlines=True
+        )
     else:  # Linux
         return subprocess.check_output("xclip -o", universal_newlines=True)
+
 
 def write_to_clipboard(content):
     if sys.platform == "darwin":  # macOS
         subprocess.run("pbcopy", universal_newlines=True, input=content)
     elif sys.platform == "win32":  # Windows
-        subprocess.run("powershell Set-Clipboard", universal_newlines=True, input=content)
+        subprocess.run(
+            "powershell Set-Clipboard", universal_newlines=True, input=content
+        )
     else:  # Linux
-        subprocess.run("xclip -selection clipboard", universal_newlines=True, input=content)
-
+        subprocess.run(
+            "xclip -selection clipboard", universal_newlines=True, input=content
+        )
 
 
 def send_command_to_usb_device(command: str):
     print(f"Would send command to USB device: {command}")
-    MAGIC_SEQUENCE = b"\x42\x67\x4a\x79"
+    MAGIC_SEQUENCE = b"\x4a\x42\x67\x41"
     data = MAGIC_SEQUENCE + command.encode("utf-8")
     # lol
+
 
 # https://pillow.readthedocs.io/en/stable/_modules/PIL/ImageGrab.html#grabclipboard
 def grabclipboard_img() -> bytes | list[str] | None:

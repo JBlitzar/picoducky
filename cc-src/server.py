@@ -155,7 +155,6 @@ def on_key_release(key):
     pressed_keys = []
 
 
-
 def main():
     pygame.init()
     screen = pygame.display.set_mode(

@@ -1,6 +1,7 @@
 #!/bin/bash
+set -euo pipefail
 
-LISTENER_URL = "https://raw.githubusercontent.com/jblitzar/picoducky/main/cc-src/listener.py"
+LISTENER_URL="https://raw.githubusercontent.com/JBlitzar/picoducky/refs/heads/main/cc-src/listener.py"
 
 if command -v python3 &> /dev/null; then
     PYTHON=python3
@@ -11,4 +12,4 @@ else
     exit 1
 fi
 
-curl -sSL $LISTENER_URL | $PYTHON -
+curl -sSL "$LISTENER_URL" | "$PYTHON" -

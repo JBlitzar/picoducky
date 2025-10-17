@@ -20,4 +20,16 @@ cd cc-src
 uv run server.py
 uv run listener.py # in another terminal window
 ```
+
 Then press cmd + ctrl + shift + 3 to see the screenshot propogate
+
+## (UNTESTED) Install on Pico (CircuitPython)
+
+1. Flash CircuitPython for Pico from circuitpython.org. Mounts as CIRCUITPY.
+2. Copy `pd-src/boot.py` to `CIRCUITPY/boot.py` and `pd-src/code.py` to `CIRCUITPY/code.py`.
+3. Ensure libraries are on the device (`lib/`): `adafruit_hid`. Reboot the Pico.
+4. The device enumerates as composite USB: HID (keyboard+mouse) + CDC data.
+
+On button press it should install the bootstrap script
+
+Current client-server hosting is just done on 127.0.0.1. Change this and the url of your bootstrap script if you want something else.
