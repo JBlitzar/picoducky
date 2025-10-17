@@ -25,11 +25,16 @@ Then press cmd + ctrl + shift + 3 to see the screenshot propogate
 
 ## (UNTESTED) Install on Pico (CircuitPython)
 
-1. Flash CircuitPython for Pico from circuitpython.org. Mounts as CIRCUITPY.
-2. Copy `pd-src/boot.py` to `CIRCUITPY/boot.py` and `pd-src/code.py` to `CIRCUITPY/code.py`.
-3. Copy the file mouse_abs.py from this repo to the CIRCUITPY drive in /lib/adafruit_hid Copy the files boot.py and code.py on your CIRCUITPY drive
-4. Ensure libraries are on the device (`lib/`): `adafruit_hid`. Reboot the Pico.
-5. The device enumerates as composite USB: HID (keyboard+mouse) + CDC data.
+1. Hold the BOOT button while plugging in the board
+2. Download and drag-and-drop the .uf2 file from [CircuitPython](https://circuitpython.org/board/raspberry_pi_pico/)
+3. Press the RESET button or replug the USB cable
+4. Download the Adafruit CircuitPython bundle from [here](https://circuitpython.org/libraries)
+5. Extract the bundle and locate the adafruit-hid folder inside the lib directory
+6. Copy the adafruit-hid folder to the CIRCUITPY lib directory
+7. Copy the file mouse_abs.py from this repo to the CIRCUITPY drive in /lib/adafruit_hid
+8. Copy `pd-src/boot.py` to `CIRCUITPY/boot.py` and `pd-src/code.py` to `CIRCUITPY/code.py`.
+9. Press the RESET button or replug the USB cable
+10. You're all set!
 
 On button press it should install the bootstrap script
 
