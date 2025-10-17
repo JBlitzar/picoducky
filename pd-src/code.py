@@ -8,7 +8,7 @@ import usb_cdc  # type: ignore
 from adafruit_hid.keyboard import Keyboard  # type: ignore
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS  # type: ignore
 from adafruit_hid.keycode import Keycode  # type: ignore
-from adafruit_hid.mouse import Mouse  # type: ignore
+from adafruit_hid.mouse_abs import Mouse  # type: ignore
 import pwmio  # type: ignore
 
 # in an effort to display full transparency, I used AI for all of the hardware-specific stuff bc I'm not going to dig through the documentation tbh
@@ -33,51 +33,21 @@ keyboard = Keyboard(usb_hid.devices)
 layout = KeyboardLayoutUS(keyboard)
 mouse = Mouse(usb_hid.devices)
 
-# Absolute mouse via raw HID report (6 bytes: buttons, xL, xH, yL, yH, wheel)
-_hid_mouse = None
-for _d in usb_hid.devices:
-    try:
-        if (
-            getattr(_d, "usage_page", None) == 0x01
-            and getattr(_d, "usage", None) == 0x02
-        ):
-            _hid_mouse = _d
-            break
-    except Exception:
-        pass
 
-_abs_x = 0
-_abs_y = 0
-_buttons = 0
+_mx = 0
+_my = 0
 
 
 def _send_abs_mouse(x: int, y: int, wheel: int = 0) -> None:
+    global _mx, _my
+    if x is None:
+        x = _mx
+    if y is None:
+        y = _my
     print("Would send abs mouse...", x, y, wheel)
-    global _abs_x, _abs_y
-    if _hid_mouse is None:
-        return
-    x = 0 if x < 0 else (32767 if x > 32767 else x)
-    y = 0 if y < 0 else (32767 if y > 32767 else y)
-    w = wheel
-    if w < -127:
-        w = -127
-    if w > 127:
-        w = 127
-    report = bytes(
-        (
-            _buttons & 0xFF,
-            x & 0xFF,
-            (x >> 8) & 0xFF,
-            y & 0xFF,
-            (y >> 8) & 0xFF,
-            w & 0xFF,
-        )
-    )
-    try:
-        _hid_mouse.send_report(report)
-        _abs_x, _abs_y = x, y
-    except Exception:
-        pass
+    mouse.move(x, y, wheel)
+    _mx = x
+    _my = y
 
 
 def set_color(r, g, b):
@@ -170,12 +140,6 @@ def type_sequence(seq: Sequence[str]) -> None:
             time.sleep(0.02)
 
 
-def move_mouse_relative(dx: int, dy: int) -> None:
-    # Fallback for any legacy relative calls; convert to abs using last position
-    _send_abs_mouse(_abs_x + dx, _abs_y + dy, 0)
-    time.sleep(0.005)
-
-
 def on_receive_usb_data(data: bytes) -> None:
     if not data.startswith(MAGIC_SEQUENCE):
         return
@@ -204,18 +168,17 @@ def on_receive_usb_data(data: bytes) -> None:
                 mask = Mouse.MIDDLE_BUTTON
             elif btn in ("3", "right", "RIGHT"):
                 mask = Mouse.RIGHT_BUTTON
-            global _buttons
+
             if pressed == "1":
-                _buttons |= mask
+                mouse.press(mask)
             else:
-                _buttons &= ~mask
-            _send_abs_mouse(_abs_x, _abs_y, 0)
+                mouse.release(mask)
         except Exception:
             pass
     elif cmd in ("mousewheel", "wheel") and len(parts) > 1:
         try:
             delta = int(parts[1])
-            _send_abs_mouse(_abs_x, _abs_y, delta)
+            _send_abs_mouse(None, None, delta)
         except Exception:
             pass
     elif cmd == "type" and len(parts) > 1:
@@ -258,7 +221,6 @@ def main() -> None:
 
         cur = button.value
         if not cur and last_button:
-            set_color(False, True, True, False, True, True)
             # Open Spotlight, then Terminal
             type_sequence(["⌘ "])
             time.sleep(0.25)
