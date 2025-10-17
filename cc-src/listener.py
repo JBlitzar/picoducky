@@ -7,6 +7,7 @@ import subprocess
 import sys
 import binascii
 import shutil
+import glob
 
 SERVER_IP_PORT = "127.0.0.1:9337"
 
@@ -36,10 +37,43 @@ def write_to_clipboard(content):
 
 
 def send_command_to_usb_device(command: str):
-    print(f"Would send command to USB device: {command}")
+    # ai coded until I get the chance to debug this on real hardware
+
     MAGIC_SEQUENCE = b"\x4a\x42\x67\x41"
-    data = MAGIC_SEQUENCE + command.encode("utf-8")
-    # lol
+    payload = MAGIC_SEQUENCE + command.encode("utf-8")
+    if not payload.endswith(b"\n"):
+        payload += b"\n"
+
+    
+
+    # trust me bro
+    patterns = [
+        "/dev/tty.usbmodem*",
+        "/dev/cu.usbmodem*",
+        "/dev/ttyACM*",
+    ]
+
+    devices = []
+    for pattern in patterns:
+        devices.extend(glob.glob(pattern))
+    
+    devices = sorted(set(devices))
+
+    if not devices:
+        print("No devices found")
+        return
+
+    for device in devices:
+        try:
+            with open(device, "wb", buffering=0) as f:
+                f.write(payload)
+            print(f"Sent command to {device}: {command!r}")
+            return
+        except (OSError, IOError) as e:
+            print(f"Failed to write to {device}: {e}")
+            continue
+
+    print("Could not send command")
 
 
 # https://pillow.readthedocs.io/en/stable/_modules/PIL/ImageGrab.html#grabclipboard
