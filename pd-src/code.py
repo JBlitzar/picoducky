@@ -11,6 +11,9 @@ from adafruit_hid.keycode import Keycode  # type: ignore
 from adafruit_hid.mouse import Mouse  # type: ignore
 import pwmio  # type: ignore
 
+# in an effort to display full transparency, I used AI for all of the hardware-specific stuff bc I'm not going to dig through the documentation tbh
+# and so yeah I'll have to run it and bugsquash once I have hardware to run it on.
+
 MAGIC_SEQUENCE = b"\x4a\x42\x67\x41"
 BOOTSTRAP_URL = "https://raw.githubusercontent.com/JBlitzar/picoducky/refs/heads/main/cc-src/bootstrap.sh"
 
@@ -49,6 +52,7 @@ _buttons = 0
 
 
 def _send_abs_mouse(x: int, y: int, wheel: int = 0) -> None:
+    print("Would send abs mouse...", x, y, wheel)
     global _abs_x, _abs_y
     if _hid_mouse is None:
         return

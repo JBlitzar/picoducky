@@ -8,6 +8,10 @@ import time
 
 PORT = 9337
 
+# should be (w,h)
+display_size = None
+remote_size = None
+
 
 def screenshot_callback(img_data: bytes):
     try:
@@ -36,6 +40,11 @@ def screenshot_callback(img_data: bytes):
         if screen:
             screen.blit(pygame_image, (0, 0))
             pygame.display.flip()
+
+        # Record sizes for coordinate scaling
+        global display_size, remote_size
+        display_size = new_size
+        remote_size = original_size
 
     except Exception as e:
         print(f"Error displaying screenshot: {e}")
@@ -121,7 +130,24 @@ def on_mouse_move(x, y):
     if current_time - last_mouse_sent_timestamp < 0.05:
         return
 
-    send_command_to_client(f"mouse;{x},{y}\n")
+    # scaling coordinates because HID absolute range is 0..32767 for both X and Y
+    if display_size and remote_size:
+        dw, dh = display_size
+        rw, rh = remote_size
+
+        sx = max(0, min(x, max(dw - 1, 0)))
+        sy = max(0, min(y, max(dh - 1, 0)))
+
+        rx = int(sx * rw / max(dw, 1))
+        ry = int(sy * rh / max(dh, 1))
+
+        abs_x = int(rx * 32767 / max(rw - 1, 1))
+        abs_y = int(ry * 32767 / max(rh - 1, 1))
+
+        send_command_to_client(f"mouse;{abs_x},{abs_y}\n")
+    else:
+        send_command_to_client(f"mouse;{x},{y}\n")
+
     last_mouse_sent_timestamp = current_time
 
 
