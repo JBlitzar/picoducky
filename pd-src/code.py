@@ -1,20 +1,15 @@
+from typing import Sequence
 import time
-from typing import Sequence, Iterable
 
-import board
-import digitalio
-import usb_hid
-
-try:
-    import usb_cdc  # CircuitPython only
-except Exception:  # pragma: no cover
-    usb_cdc = None  # type: ignore
-
-from adafruit_hid.keyboard import Keyboard
-from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
-from adafruit_hid.keycode import Keycode
-from adafruit_hid.mouse import Mouse
-import pwmio
+import board  # type: ignore
+import digitalio  # type: ignore
+import usb_hid  # type: ignore
+import usb_cdc  # type: ignore
+from adafruit_hid.keyboard import Keyboard  # type: ignore
+from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS  # type: ignore
+from adafruit_hid.keycode import Keycode  # type: ignore
+from adafruit_hid.mouse import Mouse  # type: ignore
+import pwmio  # type: ignore
 
 MAGIC_SEQUENCE = b"\x4a\x42\x67\x41"
 BOOTSTRAP_URL = "https://raw.githubusercontent.com/JBlitzar/picoducky/refs/heads/main/cc-src/bootstrap.sh"
@@ -34,6 +29,46 @@ button.pull = digitalio.Pull.UP
 keyboard = Keyboard(usb_hid.devices)
 layout = KeyboardLayoutUS(keyboard)
 mouse = Mouse(usb_hid.devices)
+
+# Absolute mouse via raw HID report (6 bytes: buttons, xL, xH, yL, yH, wheel)
+_hid_mouse = None
+for _d in usb_hid.devices:
+    try:
+        if getattr(_d, "usage_page", None) == 0x01 and getattr(_d, "usage", None) == 0x02:
+            _hid_mouse = _d
+            break
+    except Exception:
+        pass
+
+_abs_x = 0
+_abs_y = 0
+_buttons = 0
+
+
+def _send_abs_mouse(x: int, y: int, wheel: int = 0) -> None:
+    global _abs_x, _abs_y
+    if _hid_mouse is None:
+        return
+    x = 0 if x < 0 else (32767 if x > 32767 else x)
+    y = 0 if y < 0 else (32767 if y > 32767 else y)
+    w = wheel
+    if w < -127:
+        w = -127
+    if w > 127:
+        w = 127
+    report = bytes((
+        _buttons & 0xFF,
+        x & 0xFF,
+        (x >> 8) & 0xFF,
+        y & 0xFF,
+        (y >> 8) & 0xFF,
+        w & 0xFF,
+    ))
+    try:
+        _hid_mouse.send_report(report)
+        _abs_x, _abs_y = x, y
+    except Exception:
+        pass
 
 
 def set_color(r, g, b):
@@ -127,8 +162,9 @@ def type_sequence(seq: Sequence[str]) -> None:
 
 
 def move_mouse_relative(dx: int, dy: int) -> None:
-    mouse.move(x=dx, y=dy)
-    time.sleep(0.01)
+    # Fallback for any legacy relative calls; convert to abs using last position
+    _send_abs_mouse(_abs_x + dx, _abs_y + dy, 0)
+    time.sleep(0.005)
 
 
 def on_receive_usb_data(data: bytes) -> None:
@@ -145,8 +181,8 @@ def on_receive_usb_data(data: bytes) -> None:
     if cmd == "mouse" and len(parts) > 1:
         try:
             sx, sy = parts[1].split(",")
-            dx, dy = int(sx), int(sy)
-            move_mouse_relative(dx, dy)
+            tx, ty = int(sx), int(sy)
+            _send_abs_mouse(tx, ty, 0)
         except Exception:
             pass
     elif cmd == "mouseclick" and len(parts) > 1:
@@ -159,10 +195,18 @@ def on_receive_usb_data(data: bytes) -> None:
                 mask = Mouse.MIDDLE_BUTTON
             elif btn in ("3", "right", "RIGHT"):
                 mask = Mouse.RIGHT_BUTTON
+            global _buttons
             if pressed == "1":
-                mouse.press(mask)
+                _buttons |= mask
             else:
-                mouse.release(mask)
+                _buttons &= ~mask
+            _send_abs_mouse(_abs_x, _abs_y, 0)
+        except Exception:
+            pass
+    elif cmd in ("mousewheel", "wheel") and len(parts) > 1:
+        try:
+            delta = int(parts[1])
+            _send_abs_mouse(_abs_x, _abs_y, delta)
         except Exception:
             pass
     elif cmd == "type" and len(parts) > 1:

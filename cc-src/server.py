@@ -125,6 +125,13 @@ def on_mouse_move(x, y):
     last_mouse_sent_timestamp = current_time
 
 
+def on_mouse_wheel(delta):
+    try:
+        send_command_to_client(f"wheel;{int(delta)}\n")
+    except Exception:
+        pass
+
+
 # the truly elegant solution would to just have seperate press and release command propogate properly
 pressed_keys = []
 
@@ -178,6 +185,8 @@ def main():
                 running = False
             elif event.type == pygame.MOUSEMOTION:
                 on_mouse_move(event.pos[0], event.pos[1])
+            elif event.type == pygame.MOUSEWHEEL:
+                on_mouse_wheel(event.y)
             elif event.type == pygame.KEYDOWN:
                 on_key_press(event.key)
             elif event.type == pygame.KEYUP:
