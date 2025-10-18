@@ -14,6 +14,7 @@ class LEDPattern(Enum):
 
 
 class PDLED:
+    # PDLEDlib by JBlitzar, https://github.com/JBlitzar/picoducky/blob/main/tests/pd-led-lib.py
     RED = (255, 0, 0)
     GREEN = (0, 255, 0)
     BLUE = (0, 0, 255)
