@@ -38,7 +38,7 @@ _mx = 0
 _my = 0
 
 
-def _send_abs_mouse(x: int, y: int, wheel: int = 0) -> None:
+def _send_abs_mouse(x: int | None = None, y: int | None = None, wheel: int = 0) -> None:
     global _mx, _my
     if x is None:
         x = _mx
