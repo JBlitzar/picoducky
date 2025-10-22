@@ -122,7 +122,7 @@ class Mouse:
         # Wheel
         while wheel != 0:
             partial_wheel = self._limit(wheel)
-            print(wheel)
+            # print(wheel)
             self.report[5] = partial_wheel & 0xFF
             self._mouse_device.send_report(self.report)
             wheel -= partial_wheel
