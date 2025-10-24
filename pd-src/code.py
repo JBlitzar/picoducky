@@ -1,4 +1,5 @@
 from typing import Sequence
+import asyncio
 import time
 
 import board  # type: ignore
@@ -102,7 +103,7 @@ def _char_to_keycode(ch: str) -> int | None:
     return None
 
 
-def type_sequence(seq: Sequence[str]) -> None:
+async def type_sequence(seq: Sequence[str]) -> None:
     for token in seq:
         mods: list[int] = []
         enter = False
@@ -122,7 +123,7 @@ def type_sequence(seq: Sequence[str]) -> None:
             else:
                 keyboard.press(Keycode.ENTER)
                 keyboard.release_all()
-            time.sleep(0.03)
+            await asyncio.sleep(0.03)
             continue
 
         if mods and chars:
@@ -132,15 +133,15 @@ def type_sequence(seq: Sequence[str]) -> None:
                     continue
                 keyboard.press(*mods, kc)
                 keyboard.release_all()
-                time.sleep(0.02)
+                await asyncio.sleep(0.02)
             continue
 
         if not mods and chars:
             layout.write("".join(chars))
-            time.sleep(0.02)
+            await asyncio.sleep(0.02)
 
 
-def on_receive_usb_data(data: bytes) -> None:
+async def on_receive_usb_data(data: bytes) -> None:
     if not data.startswith(MAGIC_SEQUENCE):
         return
     try:
@@ -183,58 +184,62 @@ def on_receive_usb_data(data: bytes) -> None:
             pass
     elif cmd == "type" and len(parts) > 1:
         sequence = "".join(parts[1:]).split(",,")
-        type_sequence(sequence)
+        await type_sequence(sequence)
 
 
 _usb_buf = bytearray()
 
 
-def _read_usb_poll() -> None:
-    if usb_cdc is None or not hasattr(usb_cdc, "data"):
-        return
-    try:
-        n = usb_cdc.data.in_waiting
-        if n:
-            chunk = usb_cdc.data.read(n)
-            if chunk:
-                _usb_buf.extend(chunk)
-        while True:
-            nl = _usb_buf.find(b"\n")
-            if nl == -1:
-                break
-            pkt = bytes(_usb_buf[:nl])
-            del _usb_buf[: nl + 1]
-            on_receive_usb_data(pkt)
-        if _usb_buf.startswith(MAGIC_SEQUENCE) and b";" in _usb_buf:
-            on_receive_usb_data(bytes(_usb_buf))
-            _usb_buf.clear()
-    except Exception:
-        pass
-
-
-def main() -> None:
-    last_button = button.value
-    t0 = time.monotonic()
-
+async def _usb_reader() -> None:
     while True:
-        _read_usb_poll()
+        try:
+            if usb_cdc is None or not hasattr(usb_cdc, "data"):
+                await asyncio.sleep(0.05)
+                continue
+            n = usb_cdc.data.in_waiting
+            if n:
+                chunk = usb_cdc.data.read(n)
+                if chunk:
+                    _usb_buf.extend(chunk)
+                while True:
+                    nl = _usb_buf.find(b"\n")
+                    if nl == -1:
+                        break
+                    pkt = bytes(_usb_buf[:nl])
+                    del _usb_buf[: nl + 1]
+                    await on_receive_usb_data(pkt)
+                if _usb_buf.startswith(MAGIC_SEQUENCE) and b";" in _usb_buf:
+                    await on_receive_usb_data(bytes(_usb_buf))
+                    _usb_buf.clear()
+            else:
+                await asyncio.sleep(0.01)
+        except Exception:
+            await asyncio.sleep(0.05)
 
+
+async def _button_watcher() -> None:
+    last_button = button.value
+    while True:
         cur = button.value
         if not cur and last_button:
-            # Open Spotlight, then Terminal
-            type_sequence(["⌘ "])
-            time.sleep(0.25)
-            type_sequence(["terminal", "↩︎"])
-            time.sleep(0.25)
-            # Run bootstrap
+            await type_sequence(["⌘ "])
+            await asyncio.sleep(0.25)
+            await type_sequence(["terminal", "↩︎"])
+            await asyncio.sleep(0.25)
             cmd = f"curl -sSL {BOOTSTRAP_URL} | bash"
-            type_sequence([cmd, "↩︎"])
-
+            await type_sequence([cmd, "↩︎"])
         last_button = cur
+        await asyncio.sleep(0.01)
 
-        if time.monotonic() - t0 > 5:
-            t0 = time.monotonic()
+
+async def main() -> None:
+    await asyncio.gather(_usb_reader(), _button_watcher())
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except AttributeError:
+        loop = asyncio.get_event_loop()
+        loop.create_task(main())
+        loop.run_forever()
