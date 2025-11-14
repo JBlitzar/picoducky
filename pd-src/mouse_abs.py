@@ -41,6 +41,8 @@ class Mouse:
         # report[4] y2 movement
         # report[5] wheel movement
         self.report = bytearray(6)
+        self._x = 0
+        self._y = 0
 
         # Do a no-op to test if HID device is ready.
         # If not, wait a bit and try once more.
@@ -119,37 +121,41 @@ class Mouse:
             m.move(wheel=1)
         """
 
+        # Limit and cache coordinates first so wheel-only sends keep position
+        x = self._limit_coord(x)
+        y = self._limit_coord(y)
+        self._x = x
+        self._y = y
+
         # Wheel
         while wheel != 0:
             partial_wheel = self._limit(wheel)
             # print(wheel)
+            self._encode_xy()
             self.report[5] = partial_wheel & 0xFF
             self._mouse_device.send_report(self.report)
             wheel -= partial_wheel
 
-        # Coordinates
-        x = self._limit_coord(x)
-        y = self._limit_coord(y)
-        # HID reports use little endian
+        # Coordinates (no wheel)
+        self.report[5] = 0
+        self._encode_xy()
+        self._mouse_device.send_report(self.report)
+
+    def _send_no_move(self):
+        """Send a button-only report at the last absolute position."""
+        self.report[5] = 0
+        self._encode_xy()
+        self._mouse_device.send_report(self.report)
+
+    def _encode_xy(self):
+        x = self._limit_coord(self._x)
+        y = self._limit_coord(self._y)
         x1, x2 = (x & 0xFFFFFFFF).to_bytes(2, "little")
         y1, y2 = (y & 0xFFFFFFFF).to_bytes(2, "little")
-        # print(x1)
-        # print(x2)
-        # print(y1)
-        # print(y2)
         self.report[1] = x1
         self.report[2] = x2
         self.report[3] = y1
         self.report[4] = y2
-        self._mouse_device.send_report(self.report)
-
-    def _send_no_move(self):
-        """Send a button-only report."""
-        self.report[1] = 0
-        self.report[2] = 0
-        self.report[3] = 0
-        self.report[4] = 0
-        self._mouse_device.send_report(self.report)
 
     @staticmethod
     def _limit(dist):

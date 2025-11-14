@@ -130,6 +130,9 @@ time.sleep(0.8)
 
 # Center the mouse
 mouse.move(16384, 16384, 0)
+# Track last absolute position so wheel/clicks don't jump to 0,0
+_mx = 16384
+_my = 16384
 
 # Wait for host to open the serial port
 while not ser.connected:
