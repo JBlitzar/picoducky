@@ -5,6 +5,8 @@ import base64
 import io
 from PIL import Image
 import time
+import json
+import os
 
 PORT = 9337
 
@@ -12,39 +14,67 @@ PORT = 9337
 display_size = None
 remote_size = None
 
+# Profiling toggle: set PD_PROFILE=1 to enable JSON logs
+PROFILE = os.getenv("PD_PROFILE", "0") == "1" if 'os' in globals() else False
+
 
 def screenshot_callback(img_data: bytes):
     try:
-        print("DING DING DING SCREENSHOT CALLBACK")
+        if PROFILE:
+            print(json.dumps({"side": "server", "event": "callback"}), flush=True)
         # Scale image to half size
-
-        image = Image.open(
-            io.BytesIO(img_data)
-        )  # haha reparse and get bytes back from image
+        t_open_s = time.perf_counter()
+        image = Image.open(io.BytesIO(img_data))
+        t_open_e = time.perf_counter()
         # idk ai wrote this part
-
         original_size = image.size
+        t_resize_s = time.perf_counter()
         new_size = (original_size[0] // 4, original_size[1] // 4)
         new_image = image.resize(new_size, Image.Resampling.LANCZOS)
+        t_resize_e = time.perf_counter()
 
         # image.save("latest_screenshot.png")
 
         mode = new_image.mode
         size = new_image.size
 
+        t_bytes_s = time.perf_counter()
         data = new_image.tobytes()
+        t_bytes_e = time.perf_counter()
 
+        t_pyg_s = time.perf_counter()
         pygame_image = pygame.image.fromstring(data, size, mode)
+        t_pyg_e = time.perf_counter()
 
+        t_blit_s = time.perf_counter()
         screen = pygame.display.get_surface()
         if screen:
             screen.blit(pygame_image, (0, 0))
             pygame.display.flip()
+        t_blit_e = time.perf_counter()
 
         # Record sizes for coordinate scaling
         global display_size, remote_size
         display_size = new_size
         remote_size = original_size
+
+        if PROFILE:
+            print(
+                json.dumps(
+                    {
+                        "side": "server",
+                        "event": "display",
+                        "open_s": t_open_e - t_open_s,
+                        "resize_s": t_resize_e - t_resize_s,
+                        "to_bytes_s": t_bytes_e - t_bytes_s,
+                        "pygame_from_s": t_pyg_e - t_pyg_s,
+                        "blit_flip_s": t_blit_e - t_blit_s,
+                        "display_size": list(display_size),
+                        "remote_size": list(remote_size),
+                    }
+                ),
+                flush=True,
+            )
 
     except Exception as e:
         print(f"Error displaying screenshot: {e}")
@@ -53,6 +83,8 @@ def screenshot_callback(img_data: bytes):
 def handle_client_connection(client_socket, client_address):
     try:
         buffer = ""
+        t_recv0 = None
+        recv_calls = 0
         while True:
             data = client_socket.recv(65536)
             if not data:
@@ -62,13 +94,36 @@ def handle_client_connection(client_socket, client_address):
 
             ss_prefix = "SCREENSHOT:"
             if buffer.startswith(ss_prefix):
+                if t_recv0 is None:
+                    t_recv0 = time.perf_counter()
+                    recv_calls = 0
+                recv_calls += 1
                 # Find the end of the screenshot data (assuming it's complete)
                 screenshot_data = buffer[len(ss_prefix) :]
                 try:
+                    t_b64_s = time.perf_counter()
                     img_data = base64.b64decode(screenshot_data)
-                    print("About to call screenshot_callback")
+                    t_b64_e = time.perf_counter()
+                    if PROFILE and t_recv0 is not None:
+                        print(
+                            json.dumps(
+                                {
+                                    "side": "server",
+                                    "event": "recv_frame",
+                                    "recv_window_s": t_b64_e - t_recv0,
+                                    "recv_calls": recv_calls,
+                                    "b64_decode_s": t_b64_e - t_b64_s,
+                                    "b64_bytes": len(screenshot_data),
+                                    "raw_bytes": len(img_data),
+                                }
+                            ),
+                            flush=True,
+                        )
+                    # print("About to call screenshot_callback")
                     screenshot_callback(img_data)
                     buffer = ""
+                    t_recv0 = None
+                    recv_calls = 0
                 except Exception as e:
                     print(f"haha error: {e}")
             else:

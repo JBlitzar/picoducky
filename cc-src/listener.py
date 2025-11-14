@@ -8,8 +8,16 @@ import sys
 import binascii
 import shutil
 import glob
+import json
 
 SERVER_IP_PORT = "192.168.7.188:9337"
+
+# Profiling toggle: set PD_PROFILE=1 to enable JSON logs
+PROFILE = os.getenv("PD_PROFILE", "0") == "1"
+
+_perf = time.perf_counter
+_last_hid_sent = None
+_frame_id = 0
 
 
 def get_clipboard_content():
@@ -92,11 +100,40 @@ def grabclipboard_img() -> bytes | list[str] | None:
 def monitor_and_send_screenshots(sock):
     while True:
         try:
+            t_clip = _perf()
             content = grabclipboard_img()
             if content is not None:
+                global _frame_id
+                _frame_id += 1
+
+                t_b64s = _perf()
                 encoded_img = base64.b64encode(content).decode("utf-8")
+                t_b64e = _perf()
+
                 message = f"SCREENSHOT:{encoded_img}\n"
+                t_sends = _perf()
                 sock.sendall(message.encode("utf-8"))
+                t_sende = _perf()
+
+                if PROFILE:
+                    hid_to_clip = None
+                    if _last_hid_sent is not None:
+                        hid_to_clip = max(0.0, t_clip - _last_hid_sent)
+                    print(
+                        json.dumps(
+                            {
+                                "side": "client",
+                                "event": "frame",
+                                "id": _frame_id,
+                                "hid_to_clip_s": hid_to_clip,
+                                "b64_s": t_b64e - t_b64s,
+                                "send_s": t_sende - t_sends,
+                                "payload_b64_bytes": len(encoded_img),
+                                "payload_raw_bytes": len(content),
+                            }
+                        ),
+                        flush=True,
+                    )
                 write_to_clipboard("")
         except Exception as e:
             print(f"eek error : {e}")
@@ -107,6 +144,8 @@ def periodic_hid_screenshot():
     while True:
         try:
             if sys.platform == "darwin":
+                global _last_hid_sent
+                _last_hid_sent = _perf()
                 send_command_to_usb_device("type;⌘⌃⇧3\n")
             time.sleep(1.0)
         except Exception as e:
