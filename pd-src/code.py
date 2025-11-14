@@ -84,6 +84,29 @@ def type_sequence(seq):
             time.sleep(0.03)
             continue
 
+        named = "".join(chars).lower()
+
+        # Handle named special keys first (works with or without modifiers)
+        special_map = {
+            "space": Keycode.SPACEBAR,
+            "backspace": Keycode.BACKSPACE,
+            "tab": Keycode.TAB,
+            "enter": Keycode.ENTER,
+            "return": Keycode.ENTER,
+            "escape": Keycode.ESCAPE,
+            "esc": Keycode.ESCAPE,
+        }
+        if named in special_map:
+            kc = special_map[named]
+            if mods:
+                kbd.press(*mods, kc)
+                kbd.release_all()
+            else:
+                kbd.press(kc)
+                kbd.release_all()
+            time.sleep(0.02)
+            continue
+
         if mods and chars:
             for ch in chars:
                 kc = _char_to_keycode(ch)
