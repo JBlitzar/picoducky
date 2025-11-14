@@ -1,14 +1,33 @@
 import time
 import usb_cdc  # type: ignore
-import board
-import digitalio
+import usb_hid
+from adafruit_hid.keyboard import Keyboard
+from adafruit_hid.keycode import Keycode
+from adafruit_hid.mouse_abs import Mouse
+from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 
-
-# Minimal USB serial listener (uses usb_cdc.data enabled in boot.py)
-led = digitalio.DigitalInOut(board.LED)
-led.direction = digitalio.Direction.OUTPUT
 
 ser = usb_cdc.data
+
+
+kbd = Keyboard(usb_hid.devices)
+layout = KeyboardLayoutUS(kbd)
+layout.write("hello world")
+kbd.press(Keycode.GUI, Keycode.SPACE)
+kbd.release_all()
+time.sleep(0.5)
+layout.write("terminal")
+time.sleep(0.5)
+kbd.press(Keycode.ENTER)
+kbd.release_all()
+time.sleep(0.5)
+layout.write("echo hello world")
+kbd.press(Keycode.ENTER)
+kbd.release_all()
+time.sleep(1)
+
+mouse = Mouse(usb_hid.devices)
+mouse.move(16384, 16384, 0)
 
 # Wait for host to open the serial port
 while not ser.connected:
@@ -32,7 +51,6 @@ while True:
                 text = line.decode("utf-8", "replace").strip()
                 if text.lower() == "ping":
                     ser.write(b"pong\n")
-                    led.value = not led.value
                 else:
                     ser.write(b"echo: " + line + b"\n")
                 break
