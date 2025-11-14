@@ -9,7 +9,7 @@ import binascii
 import shutil
 import glob
 
-SERVER_IP_PORT = "127.0.0.1:9337"
+SERVER_IP_PORT = "192.168.7.188:9337"
 
 
 def get_clipboard_content():
@@ -44,8 +44,6 @@ def send_command_to_usb_device(command: str):
     if not payload.endswith(b"\n"):
         payload += b"\n"
 
-    
-
     # trust me bro
     patterns = [
         "/dev/tty.usbmodem*",
@@ -56,7 +54,7 @@ def send_command_to_usb_device(command: str):
     devices = []
     for pattern in patterns:
         devices.extend(glob.glob(pattern))
-    
+
     devices = sorted(set(devices))
 
     if not devices:
