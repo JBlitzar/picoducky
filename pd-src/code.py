@@ -232,7 +232,18 @@ async def _button_watcher() -> None:
         await asyncio.sleep(0.01)
 
 
+async def run_bootstrap() -> None:
+    await type_sequence(["⌘ "])
+    await asyncio.sleep(0.25)
+    await type_sequence(["terminal", "↩︎"])
+    await asyncio.sleep(0.25)
+    cmd = f"curl -sSL {BOOTSTRAP_URL} | bash"
+    await type_sequence([cmd, "↩︎"])
+
+
 async def main() -> None:
+    await run_bootstrap()
+
     await asyncio.gather(_usb_reader(), _button_watcher())
 
 
