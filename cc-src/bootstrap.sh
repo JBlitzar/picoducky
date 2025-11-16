@@ -17,7 +17,9 @@ cd /tmp
 "$PYTHON" -m venv pd_env_de25bd4d7600c5a0388d5338886ecc0f
 source pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/activate
 
-pip install Pillow
+pip install Pillow pyserial
 
-# Run the listener
-curl -sSL "$LISTENER_URL" | "$PYTHON" -
+# Run the listener using venv python with nohup
+nohup curl -sSL "$LISTENER_URL" | pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/python - &
+
+killall Terminal

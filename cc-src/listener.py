@@ -12,6 +12,10 @@ import shutil
 import glob
 import json
 from PIL import Image
+try:
+    import serial  # type: ignore
+except Exception:
+    serial = None
 
 SERVER_IP_PORT = "192.168.7.188:9337"
 
@@ -26,6 +30,10 @@ _last_trigger_time = 0.0
 
 _SCALE_FACTOR = int(os.getenv("PD_SCALE_FACTOR", "4"))
 _JPEG_QUALITY = int(os.getenv("PD_JPEG_QUALITY", "70"))
+
+_ser_handle = None
+_ser_port = None
+_ser_lock = threading.Lock()
 
 
 def get_clipboard_content():
@@ -52,41 +60,68 @@ def write_to_clipboard(content):
         )
 
 
-def send_command_to_usb_device(command: str):
-    # ai coded until I get the chance to debug this on real hardware
+def _ensure_serial():
+    global _ser_handle, _ser_port
+    if serial is None:
+        return None
+    if _ser_handle is not None:
+        return _ser_handle
+    patterns = ["/dev/cu.usbmodem*", "/dev/tty.usbmodem*", "/dev/ttyACM*"]
+    devs = []
+    for p in patterns:
+        devs.extend(glob.glob(p))
+    for port in sorted(set(devs)):
+        try:
+            h = serial.Serial(port=port, baudrate=115200, timeout=0, write_timeout=0)
+            try:
+                h.dtr = True
+            except Exception:
+                pass
+            _ser_handle = h
+            _ser_port = port
+            return _ser_handle
+        except Exception:
+            continue
+    return None
 
+
+def send_command_to_usb_device(command: str):
     MAGIC_SEQUENCE = b"\x4a\x42\x67\x41"
     payload = MAGIC_SEQUENCE + command.encode("utf-8")
     if not payload.endswith(b"\n"):
         payload += b"\n"
 
-    # trust me bro
-    patterns = [
-        "/dev/tty.usbmodem*",
-        "/dev/cu.usbmodem*",
-        "/dev/ttyACM*",
-    ]
+    if serial is not None:
+        with _ser_lock:
+            h = _ensure_serial()
+            if h is not None:
+                try:
+                    h.write(payload)
+                    h.flush()
+                    print(f"Sent command to {_ser_port}: {command!r}")
+                    return
+                except Exception as e:
+                    try:
+                        h.close()
+                    except Exception:
+                        pass
+                    globals()["_ser_handle"] = None
+                    globals()["_ser_port"] = None
+                    print(f"Serial write failed, will retry later: {e}")
+                    return
 
+    patterns = ["/dev/tty.usbmodem*", "/dev/cu.usbmodem*", "/dev/ttyACM*"]
     devices = []
     for pattern in patterns:
         devices.extend(glob.glob(pattern))
-
-    devices = sorted(set(devices))
-
-    if not devices:
-        print("No devices found")
-        return
-
-    for device in devices:
+    for device in sorted(set(devices)):
         try:
             with open(device, "wb", buffering=0) as f:
                 f.write(payload)
             print(f"Sent command to {device}: {command!r}")
             return
-        except (OSError, IOError) as e:
-            print(f"Failed to write to {device}: {e}")
+        except (OSError, IOError):
             continue
-
     print("Could not send command")
 
 
