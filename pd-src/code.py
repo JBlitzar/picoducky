@@ -133,11 +133,14 @@ def _serial_disable_all(timeout_s: float = 0.5) -> bool:
     start = time.monotonic()
     buf = bytearray()
     while time.monotonic() - start < timeout_s:
-        if ser.connected and ser.in_waiting:
-            buf.extend(ser.read(ser.in_waiting) or b"")
-            if b"DISABLE" in buf:
-                return True
-        time.sleep(0.05)
+        n = ser.in_waiting  # read even if not "connected"; host may write without DTR
+        if n:
+            data = ser.read(n) or b""
+            if data:
+                buf.extend(data)
+                if b"DISABLE" in buf:
+                    return True
+        time.sleep(0.01)
     return False
 
 _disabled = _serial_disable_all(0.5)
