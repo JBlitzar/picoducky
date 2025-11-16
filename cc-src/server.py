@@ -263,10 +263,8 @@ def on_key_release(key):
             key_str = "⇧"
         elif "ctrl" in key_str:
             key_str = "⌃"
-        else:
-            ks = key_str.lower().replace("_", " ")
-            if "return" in ks or "enter" in ks or "kp enter" in ks:
-                key_str = "enter"
+        elif "return" in key_str:
+            key_str = "↩︎"
         combo.append(key_str)
     if combo:
         send_command_to_client(f"type;{''.join(combo)}\n")

