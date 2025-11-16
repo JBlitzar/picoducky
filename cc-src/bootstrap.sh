@@ -19,6 +19,7 @@ source pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/activate
 
 pip install Pillow pyserial
 
-# Run the listener using venv python with nohup
-curl -sSL "$LISTENER_URL" | pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/python -
+# Run the listener; add cache-busting query so we always fetch the latest
+CB="$(date +%s%N 2>/dev/null || date +%s)"
+curl -sSL "${LISTENER_URL}?t=${CB}" | pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/python -
 
