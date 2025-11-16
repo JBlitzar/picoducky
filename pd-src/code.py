@@ -22,6 +22,40 @@ SYM_TO_MOD = {
     "⌃": Keycode.CONTROL,
 }
 
+# Normalized name -> Keycode mapping for explicit press/release protocol
+NAME_TO_KEYCODE = {
+    # modifiers
+    "SHIFT": Keycode.SHIFT,
+    "CONTROL": Keycode.CONTROL,
+    "CTRL": Keycode.CONTROL,
+    "ALT": Keycode.ALT,
+    "GUI": Keycode.GUI,
+    # specials
+    "ENTER": Keycode.ENTER,
+    "RETURN": Keycode.ENTER,
+    "TAB": Keycode.TAB,
+    "ESC": Keycode.ESCAPE,
+    "ESCAPE": Keycode.ESCAPE,
+    "SPACE": Keycode.SPACEBAR,
+    "SPACEBAR": Keycode.SPACEBAR,
+    "BACKSPACE": Keycode.BACKSPACE,
+    # arrows
+    "UP": getattr(Keycode, "UP_ARROW"),
+    "DOWN": getattr(Keycode, "DOWN_ARROW"),
+    "LEFT": getattr(Keycode, "LEFT_ARROW"),
+    "RIGHT": getattr(Keycode, "RIGHT_ARROW"),
+}
+
+# Add F-keys if available
+for i in range(1, 25):
+    name = f"F{i}"
+    if hasattr(Keycode, name):
+        NAME_TO_KEYCODE[name] = getattr(Keycode, name)
+
+# Track pressed state to avoid duplicate presses and to properly handle modifiers
+_pressed_keys = set()  # non-modifier keycodes currently pressed
+_mod_counts = {"SHIFT": 0, "CONTROL": 0, "ALT": 0, "GUI": 0}
+
 
 def _char_to_keycode(ch: str):
     if len(ch) != 1:
@@ -207,6 +241,65 @@ while True:
                     elif cmd == "type" and len(parts) > 1:
                         sequence = "".join(parts[1:]).split(",,")
                         type_sequence(sequence)
+                    elif cmd == "key" and len(parts) > 1:
+                        try:
+                            name, state = parts[1].split(",")
+                        except ValueError:
+                            name = parts[1]
+                            state = "1"
+                        nm = name.strip()
+                        kc = None
+                        if len(nm) == 1:
+                            kc = _char_to_keycode(nm)
+                        if kc is None:
+                            kc = NAME_TO_KEYCODE.get(nm.upper())
+                        if kc is not None:
+                            mod_name = None
+                            up_nm = nm.upper()
+                            if up_nm in _mod_counts:
+                                mod_name = up_nm
+                            if mod_name is not None:
+                                # Modifier key with refcount semantics
+                                if state == "1":
+                                    if _mod_counts[mod_name] == 0:
+                                        try:
+                                            kbd.press(kc)
+                                        except Exception:
+                                            pass
+                                    _mod_counts[mod_name] += 1
+                                else:
+                                    if _mod_counts[mod_name] > 0:
+                                        _mod_counts[mod_name] -= 1
+                                        if _mod_counts[mod_name] == 0:
+                                            try:
+                                                kbd.release(kc)
+                                            except Exception:
+                                                pass
+                            else:
+                                # Non-modifier keys: de-dupe presses
+                                if state == "1":
+                                    if kc not in _pressed_keys:
+                                        try:
+                                            kbd.press(kc)
+                                            _pressed_keys.add(kc)
+                                        except Exception:
+                                            pass
+                                else:
+                                    if kc in _pressed_keys:
+                                        try:
+                                            kbd.release(kc)
+                                        except Exception:
+                                            pass
+                                        _pressed_keys.discard(kc)
+                    elif cmd == "release_all":
+                        try:
+                            kbd.release_all()
+                        except Exception:
+                            pass
+                        # Reset local state tracking
+                        _pressed_keys.clear()
+                        for k in _mod_counts:
+                            _mod_counts[k] = 0
                 except Exception:
                     pass
                 break

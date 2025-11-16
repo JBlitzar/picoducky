@@ -241,36 +241,62 @@ def on_mouse_wheel(delta):
         pass
 
 
-# the truly elegant solution would to just have seperate press and release command propogate properly
-pressed_keys = []
+pressed_keys = set()
 
 
-def on_key_press(key):
-    pressed_keys.append(key)
+def _normalize_key_name(k: int) -> str | None:
+    n = pygame.key.name(k).lower()
+    m = {
+        "left shift": "SHIFT",
+        "right shift": "SHIFT",
+        "left ctrl": "CONTROL",
+        "right ctrl": "CONTROL",
+        "left alt": "ALT",
+        "right alt": "ALT",
+        "left meta": "GUI",
+        "right meta": "GUI",
+        "return": "ENTER",
+        "enter": "ENTER",
+        "escape": "ESCAPE",
+        "space": "SPACE",
+        "backspace": "BACKSPACE",
+        "up": "UP",
+        "down": "DOWN",
+        "left": "LEFT",
+        "right": "RIGHT",
+    }
+    if n in m:
+        return m[n]
+    if len(n) == 1 and n.isalnum():
+        return n  # letters/digits
+    if n.startswith("f") and n[1:].isdigit():
+        return n.upper()
+    return None
 
 
-def on_key_release(key):
-    global pressed_keys
+def on_key_press(key: int):
+    name = _normalize_key_name(key)
+    if name and name not in pressed_keys:
+        send_command_to_client(f"key;{name},1\n")
+        was_empty = len(pressed_keys) == 0
+        pressed_keys.add(name)
+        # Disable screenshots while any key is held to avoid interfering with held states
+        global _ss_enabled_sent
+        if was_empty and _ss_enabled_sent:
+            send_command_to_client("ss;0\n")
+            _ss_enabled_sent = False
 
-    combo = []
-    for k in list(pressed_keys):
-        key_str = pygame.key.name(k)
-        if "meta" in key_str:
-            key_str = "⌘"
-        elif "alt" in key_str:
-            key_str = "⌥"
-        elif "shift" in key_str:
-            key_str = "⇧"
-        elif "ctrl" in key_str:
-            key_str = "⌃"
-        else:
-            ks = key_str.lower().replace("_", " ")
-            if "return" in ks or "enter" in ks:
-                key_str = "enter"
-        combo.append(key_str)
-    if combo:
-        send_command_to_client(f"type;{''.join(combo)}\n")
-    pressed_keys = []
+
+def on_key_release(key: int):
+    name = _normalize_key_name(key)
+    if name:
+        send_command_to_client(f"key;{name},0\n")
+        pressed_keys.discard(name)
+        # Re-enable screenshots when no keys are held
+        global _ss_enabled_sent
+        if len(pressed_keys) == 0 and not _ss_enabled_sent:
+            send_command_to_client("ss;1\n")
+            _ss_enabled_sent = True
 
 
 def main():
