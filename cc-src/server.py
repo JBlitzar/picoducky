@@ -278,13 +278,7 @@ def on_key_press(key: int):
     name = _normalize_key_name(key)
     if name and name not in pressed_keys:
         send_command_to_client(f"key;{name},1\n")
-        was_empty = len(pressed_keys) == 0
         pressed_keys.add(name)
-        # Disable screenshots while any key is held to avoid interfering with held states
-        global _ss_enabled_sent
-        if was_empty and _ss_enabled_sent:
-            send_command_to_client("ss;0\n")
-            _ss_enabled_sent = False
 
 
 def on_key_release(key: int):
@@ -292,11 +286,6 @@ def on_key_release(key: int):
     if name:
         send_command_to_client(f"key;{name},0\n")
         pressed_keys.discard(name)
-        # Re-enable screenshots when no keys are held
-        global _ss_enabled_sent
-        if len(pressed_keys) == 0 and not _ss_enabled_sent:
-            send_command_to_client("ss;1\n")
-            _ss_enabled_sent = True
 
 
 def main():
