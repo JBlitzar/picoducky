@@ -158,7 +158,26 @@ def handle_server_connection():
     try:
         host, port = SERVER_IP_PORT.split(":")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, int(port)))
+        # Optional: bind to a specific source IP (e.g., your 192.168.7.x)
+        src_ip = os.getenv("PD_SRC_IP")
+        if not src_ip:
+            src_ip = SERVER_IP_PORT.split(":")[0]
+        if src_ip:
+            try:
+                sock.bind((src_ip, 0))
+            except Exception as _e:
+                pass
+
+        # Retry on transient ENETUNREACH (errno 51)
+        for attempt in range(5):
+            try:
+                sock.connect((host, int(port)))
+                break
+            except OSError as e:
+                if getattr(e, "errno", None) == 51 and attempt < 4:
+                    time.sleep(1.0)
+                    continue
+                raise
         print(f"Connected to server at {SERVER_IP_PORT}")
 
         screenshot_thread = threading.Thread(
