@@ -3,12 +3,15 @@ import socket
 import threading
 import os
 import base64
+import io
+import struct
 import subprocess
 import sys
 import binascii
 import shutil
 import glob
 import json
+from PIL import Image
 
 SERVER_IP_PORT = "192.168.7.188:9337"
 
@@ -18,6 +21,11 @@ PROFILE = True  # os.getenv("PD_PROFILE", "0") == "1"
 _perf = time.perf_counter
 _last_hid_sent = None
 _frame_id = 0
+_shot_pending = False
+_last_trigger_time = 0.0
+
+_SCALE_FACTOR = int(os.getenv("PD_SCALE_FACTOR", "4"))
+_JPEG_QUALITY = int(os.getenv("PD_JPEG_QUALITY", "70"))
 
 
 def get_clipboard_content():
@@ -105,14 +113,29 @@ def monitor_and_send_screenshots(sock):
             if content is not None:
                 global _frame_id
                 _frame_id += 1
+                # Decode PNG, downscale, JPEG encode, send binary frame
+                t_open_s = _perf()
+                img = Image.open(io.BytesIO(content))
+                orig_w, orig_h = img.size
+                t_open_e = _perf()
 
-                t_b64s = _perf()
-                encoded_img = base64.b64encode(content).decode("utf-8")
-                t_b64e = _perf()
+                t_down_s = _perf()
+                if _SCALE_FACTOR > 1:
+                    img = img.reduce(_SCALE_FACTOR)
+                t_down_e = _perf()
 
-                message = f"SCREENSHOT:{encoded_img}\n"
+                t_jpeg_s = _perf()
+                bio = io.BytesIO()
+                img.convert("RGB").save(
+                    bio, format="JPEG", quality=_JPEG_QUALITY, optimize=True
+                )
+                jpeg_bytes = bio.getvalue()
+                t_jpeg_e = _perf()
+
+                header = b"SSV1" + struct.pack(">III", len(jpeg_bytes), orig_w, orig_h)
                 t_sends = _perf()
-                sock.sendall(message.encode("utf-8"))
+                sock.sendall(header)
+                sock.sendall(jpeg_bytes)
                 t_sende = _perf()
 
                 if PROFILE:
@@ -126,15 +149,23 @@ def monitor_and_send_screenshots(sock):
                                 "event": "frame",
                                 "id": _frame_id,
                                 "hid_to_clip_s": hid_to_clip,
-                                "b64_s": t_b64e - t_b64s,
+                                "open_s": t_open_e - t_open_s,
+                                "downscale_s": t_down_e - t_down_s,
+                                "jpeg_s": t_jpeg_e - t_jpeg_s,
                                 "send_s": t_sende - t_sends,
-                                "payload_b64_bytes": len(encoded_img),
-                                "payload_raw_bytes": len(content),
+                                "jpeg_bytes": len(jpeg_bytes),
+                                "orig_bytes": len(content),
+                                "orig_size": [orig_w, orig_h],
                             }
                         ),
                         flush=True,
                     )
                 write_to_clipboard("")
+                # mark this screenshot as processed so trigger thread can request next one
+                global _shot_pending
+                _shot_pending = False
+            else:
+                time.sleep(0.01)
         except Exception as e:
             print(f"eek error : {e}")
             break
@@ -144,10 +175,14 @@ def periodic_hid_screenshot():
     while True:
         try:
             if sys.platform == "darwin":
-                global _last_hid_sent
-                _last_hid_sent = _perf()
-                send_command_to_usb_device("type;⌘⌃⇧3\n")
-            time.sleep(1.0)
+                global _last_hid_sent, _shot_pending, _last_trigger_time
+                now = _perf()
+                if (not _shot_pending) or (now - _last_trigger_time > 0.2):
+                    _last_hid_sent = now
+                    send_command_to_usb_device("type;⌘⌃⇧3\n")
+                    _shot_pending = True
+                    _last_trigger_time = now
+            time.sleep(0.1)
         except Exception as e:
             print(f"periodic HID screenshot error: {e}")
             break

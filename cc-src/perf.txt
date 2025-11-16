@@ -1,0 +1,6 @@
+{"side": "server", "event": "recv_frame", "recv_window_s": 0.41594554200128186, "recv_calls": 31, "b64_decode_s": 0.001958833003300242, "b64_bytes": 1997233, "raw_bytes": 1497922}
+{"side": "server", "event": "recv_frame", "recv_window_s": 0.41705925000132993, "recv_calls": 31, "b64_decode_s": 0.0020192920055706054, "b64_bytes": 1997265, "raw_bytes": 1497946}
+{"side": "server", "event": "recv_frame", "recv_window_s": 0.40692429200862534, "recv_calls": 31, "b64_decode_s": 0.0019062089995713905, "b64_bytes": 1997509, "raw_bytes": 1498130}
+{"side": "server", "event": "callback"}
+{"side": "server", "event": "display", "open_s": 0.00640666599792894, "resize_s": 0.6406617920001736, "to_bytes_s": 0.012750457986840047, "pygame_from_s": 4.937499761581421e-05, "blit_flip_s": 0.008930415991926566, "display_size": [735, 478], "remote_size": [2940, 1912]}
+

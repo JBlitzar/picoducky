@@ -1,8 +1,8 @@
 import pygame
 import socket
 import threading
-import base64
 import io
+import struct
 from PIL import Image
 import time
 import json
@@ -18,20 +18,17 @@ remote_size = None
 PROFILE = True  # os.getenv("PD_PROFILE", "0") == "1" if 'os' in globals() else False
 
 
-def screenshot_callback(img_data: bytes):
+def screenshot_callback(img_data: bytes, orig_size):
     try:
         if PROFILE:
             print(json.dumps({"side": "server", "event": "callback"}), flush=True)
-        # Scale image to half size
         t_open_s = time.perf_counter()
         image = Image.open(io.BytesIO(img_data))
         t_open_e = time.perf_counter()
-        # idk ai wrote this part
-        original_size = image.size
-        t_resize_s = time.perf_counter()
-        new_size = (original_size[0] // 4, original_size[1] // 4)
-        new_image = image.resize(new_size, Image.Resampling.LANCZOS)
-        t_resize_e = time.perf_counter()
+        new_image = image
+        new_size = new_image.size
+        t_resize_s = t_open_e
+        t_resize_e = t_open_e
 
         # image.save("latest_screenshot.png")
 
@@ -56,7 +53,7 @@ def screenshot_callback(img_data: bytes):
         # Record sizes for coordinate scaling
         global display_size, remote_size
         display_size = new_size
-        remote_size = original_size
+        remote_size = orig_size
 
         if PROFILE:
             print(
@@ -82,54 +79,58 @@ def screenshot_callback(img_data: bytes):
 
 def handle_client_connection(client_socket, client_address):
     try:
-        buffer = ""
+        buffer = b""
         t_recv0 = None
         recv_calls = 0
+        MAGIC = b"SSV1"
+        HEADER_SIZE = 4 + 12  # magic + length(uint32) + orig_w(uint32) + orig_h(uint32)
         while True:
-            data = client_socket.recv(65536)
-            if not data:
+            chunk = client_socket.recv(65536)
+            if not chunk:
                 break
+            buffer += chunk
+            recv_calls += 1
 
-            buffer += data.decode("utf-8")
-
-            ss_prefix = "SCREENSHOT:"
-            if buffer.startswith(ss_prefix):
-                if t_recv0 is None:
-                    t_recv0 = time.perf_counter()
-                    recv_calls = 0
-                recv_calls += 1
-                # Find the end of the screenshot data (assuming it's complete)
-                screenshot_data = buffer[len(ss_prefix) :]
-                try:
-                    t_b64_s = time.perf_counter()
-                    img_data = base64.b64decode(screenshot_data)
-                    t_b64_e = time.perf_counter()
-                    if PROFILE and t_recv0 is not None:
-                        print(
-                            json.dumps(
-                                {
-                                    "side": "server",
-                                    "event": "recv_frame",
-                                    "recv_window_s": t_b64_e - t_recv0,
-                                    "recv_calls": recv_calls,
-                                    "b64_decode_s": t_b64_e - t_b64_s,
-                                    "b64_bytes": len(screenshot_data),
-                                    "raw_bytes": len(img_data),
-                                }
-                            ),
-                            flush=True,
-                        )
-                    # print("About to call screenshot_callback")
-                    screenshot_callback(img_data)
-                    buffer = ""
+            while True:
+                if len(buffer) < 4:
+                    break
+                # align to magic
+                if not buffer.startswith(MAGIC):
+                    idx = buffer.find(MAGIC)
+                    if idx == -1:
+                        buffer = b""
+                        break
+                    buffer = buffer[idx:]
                     t_recv0 = None
                     recv_calls = 0
-                except Exception as e:
-                    print(f"haha error: {e}")
-            else:
-                if "\n" in buffer or len(buffer) > 100 * 1024 * 1024:
-                    print(f"Received command: {buffer[:100]}")
-                    buffer = ""
+                if len(buffer) < HEADER_SIZE:
+                    break
+                _, length, ow, oh = (buffer[:4],) + struct.unpack(">III", buffer[4:16])
+                total = HEADER_SIZE + length
+                if len(buffer) < total:
+                    if t_recv0 is None:
+                        t_recv0 = time.perf_counter()
+                    break
+                payload = buffer[HEADER_SIZE:total]
+                buffer = buffer[total:]
+                t_done = time.perf_counter()
+                if PROFILE and t_recv0 is not None:
+                    print(
+                        json.dumps(
+                            {
+                                "side": "server",
+                                "event": "recv_frame",
+                                "recv_window_s": t_done - t_recv0,
+                                "recv_calls": recv_calls,
+                                "frame_bytes": length,
+                                "orig_size": [ow, oh],
+                            }
+                        ),
+                        flush=True,
+                    )
+                screenshot_callback(payload, (ow, oh))
+                t_recv0 = None
+                recv_calls = 0
 
     except Exception as e:
         print(f"haha error: {e}")
