@@ -35,9 +35,8 @@ _ser_handle = None
 _ser_port = None
 _ser_lock = threading.Lock()
 _screenshots_enabled = True  # kept for compatibility; we ignore ss; commands now
-_held_keys: set[str] = set()
 _ss_in_progress = False
-_buffered_releases: list[str] = []
+_event_buffer: list[tuple[str, str]] = []  # (name, state) tuples buffered during screenshot
 
 
 def get_clipboard_content():
@@ -218,20 +217,20 @@ def periodic_hid_screenshot():
                 now = _perf()
                 if (not _shot_pending) or (now - _last_trigger_time > 0.2):
                     _last_hid_sent = now
-                    # Press and release ⌘⌃⇧3 via explicit key events, preserving held keys
+                    # Press and release ⌘⌃⇧3 via explicit key events.
+                    # While this runs, we buffer all incoming key events and replay after.
                     combo = ["GUI", "CONTROL", "SHIFT", "3"]
                     globals()["_ss_in_progress"] = True
-                    snapshot = list(globals()["_held_keys"])  # shallow copy of held set
                     for key in combo:
                         send_command_to_usb_device(f"key;{key},1\n")
                     for key in reversed(combo):
                         send_command_to_usb_device(f"key;{key},0\n")
-                    # Re-assert any keys that were held before the screenshot
-                    for key in snapshot:
-                        send_command_to_usb_device(f"key;{key},1\n")
                     globals()["_ss_in_progress"] = False
-                    # Drop any releases that arrived during screenshot
-                    globals()["_buffered_releases"] = []
+                    # Flush buffered events in order
+                    buf = list(globals()["_event_buffer"])  # copy
+                    globals()["_event_buffer"] = []
+                    for name, state in buf:
+                        send_command_to_usb_device(f"key;{name},{state}\n")
                     _shot_pending = True
                     _last_trigger_time = now
             time.sleep(0.1)
@@ -299,16 +298,10 @@ def handle_server_connection():
                         # Fallback: pass through if unparsable
                         send_command_to_usb_device(thing)
                         continue
-                    if state == "1":
-                        send_command_to_usb_device(thing)
-                        _held_keys.add(name)
+                    if _ss_in_progress:
+                        _event_buffer.append((name, state))
                     else:
-                        if _ss_in_progress:
-                            # Buffer releases during screenshot to keep keys logically held
-                            _buffered_releases.append(name)
-                        else:
-                            send_command_to_usb_device(thing)
-                            _held_keys.discard(name)
+                        send_command_to_usb_device(f"key;{name},{state}\n")
                     continue
                 # Default: forward any other command
                 send_command_to_usb_device(thing)
