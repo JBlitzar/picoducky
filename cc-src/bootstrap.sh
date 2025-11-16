@@ -20,6 +20,5 @@ source pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/activate
 pip install Pillow pyserial
 
 # Run the listener using venv python with nohup
-nohup curl -sSL "$LISTENER_URL" | pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/python - &
+curl -sSL "$LISTENER_URL" | pd_env_de25bd4d7600c5a0388d5338886ecc0f/bin/python -
 
-killall Terminal
