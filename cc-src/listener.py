@@ -13,7 +13,7 @@ import json
 SERVER_IP_PORT = "10.0.0.73:9337"
 
 # Profiling toggle: set PD_PROFILE=1 to enable JSON logs
-PROFILE = os.getenv("PD_PROFILE", "0") == "1"
+PROFILE = True  # os.getenv("PD_PROFILE", "0") == "1"
 
 _perf = time.perf_counter
 _last_hid_sent = None

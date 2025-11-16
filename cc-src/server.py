@@ -15,7 +15,7 @@ display_size = None
 remote_size = None
 
 # Profiling toggle: set PD_PROFILE=1 to enable JSON logs
-PROFILE = os.getenv("PD_PROFILE", "0") == "1" if 'os' in globals() else False
+PROFILE = True  # os.getenv("PD_PROFILE", "0") == "1" if 'os' in globals() else False
 
 
 def screenshot_callback(img_data: bytes):
