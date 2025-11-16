@@ -10,7 +10,7 @@ import shutil
 import glob
 import json
 
-SERVER_IP_PORT = "10.0.0.73:9337"
+SERVER_IP_PORT = "192.168.7.188:9337"
 
 # Profiling toggle: set PD_PROFILE=1 to enable JSON logs
 PROFILE = True  # os.getenv("PD_PROFILE", "0") == "1"
