@@ -145,7 +145,6 @@ class Mouse:
         """Send a button-only report at the last absolute position."""
         self.report[5] = 0
         self._encode_xy()
-        print("Sending no-move report:", self.report)
         self._mouse_device.send_report(self.report)
 
     def _encode_xy(self):
